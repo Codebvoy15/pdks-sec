@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDKS Fleet Intelligence Plane</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600&display=swap');
+    *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #04060d; --bg2: #070b14; --bg3: #0a101c; --bg4: #0e1524;
+      --border: #141e33; --border2: #1a2540; --border3: #202d48;
+      --text: #d4e2f8; --text2: #7b91b8; --text3: #3d5070; --text4: #1f2d40;
+      --green: #00f5a0; --green-bg: #001a0f;
+      --amber: #ffb340; --amber-bg: #1a0f00;
+      --red: #ff3d5a; --red-bg: #1a0008;
+      --blue: #4d9fff; --blue-bg: #001433;
+      --purple: #a855f7; --cyan: #00e5ff;
+      --mono: 'JetBrains Mono', monospace; --sans: 'DM Sans', sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; min-height: 100vh; padding-bottom: 50px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 54px; background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 99; }
+    .tb-l, .tb-r { display: flex; align-items: center; gap: 12px; }
+    .tb-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .tb-ic { width: 26px; height: 26px; border-radius: 6px; background: linear-gradient(135deg, var(--blue), var(--purple)); display: flex; align-items: center; justify-content: center; }
+    .tb-select { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 6px 12px; color: var(--blue); font-family: var(--mono); font-size: 11px; outline: none; cursor: pointer; font-weight: 600; }
+    .tb-btn { background: transparent; border: 1px solid var(--border2); border-radius: 6px; padding: 6px 12px; color: var(--text2); font-size: 11px; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
+    .tb-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+    .badge { display: flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 10px; font-size: 10px; font-family: var(--mono); border: 1px solid; font-weight: 600; }
+    .b-live { background: var(--green-bg); border-color: rgba(0,245,160,0.3); color: var(--green); }
+    .b-warn { background: var(--red-bg); border-color: rgba(255, 61, 90, 0.3); color: var(--red); }
+    .bdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
+    .nav { display: flex; align-items: center; padding: 0 24px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+    .ntab { padding: 14px 16px; font-size: 11px; font-family: var(--mono); color: var(--text3); cursor: pointer; border: none; background: transparent; border-bottom: 2px solid transparent; transition: all 0.15s; font-weight: 500; }
+    .ntab:hover { color: var(--text2); }
+    .ntab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+    .body { padding: 24px; max-width: 1650px; margin: 0 auto; }
+    .page { display: none; } .page.active { display: block; }
+    .mrow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+    .mcard { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; position: relative; overflow: hidden; }
+    .mcard-acc { position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .mlbl { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .mval { font-size: 30px; font-weight: 600; font-family: var(--mono); line-height: 1; }
+    .panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    .ptitle { font-size: 12px; font-weight: 600; color: var(--text2); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+    .node-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+    .ncard { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 16px; transition: all 0.2s; cursor: pointer; position: relative; }
+    .ncard:hover { border-color: var(--blue); transform: translateY(-2px); }
+    .ncard::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+    .ncard.CRITICAL::before { background: var(--red); }
+    .ncard.HIGH::before { background: var(--amber); }
+    .ncard.LOW::before { background: var(--green); }
+    .nmets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+    .nmet { background: var(--bg4); border-radius: 6px; padding: 8px; }
+    .nmet.wide { grid-column: span 2; }
+    .nml { font-size: 9px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; margin-bottom: 2px; }
+    .nmv { font-size: 11px; font-weight: 600; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ntags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .nt { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-family: var(--mono); border: 1px solid; font-weight: 600; text-transform: uppercase; }
+    .nt-r { background: var(--red-bg); color: var(--red); border-color: rgba(255, 61, 90, 0.3); }
+    .nt-a { background: var(--amber-bg); color: var(--amber); border-color: rgba(255, 179, 64, 0.3); }
+    .nt-g { background: var(--green-bg); color: var(--green); border-color: rgba(0, 245, 160, 0.3); }
+    .nt-b { background: var(--blue-bg); color: var(--blue); border-color: rgba(77, 159, 255, 0.3); }
+    .wl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .wl-table th { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; padding: 12px; text-align: left; border-bottom: 1px solid var(--border); background: var(--bg3); }
+    .wl-table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .wl-table tbody tr:hover { background: rgba(77, 159, 255, 0.02); }
+    .wl-ns-badge { font-family: var(--mono); font-weight: 600; color: var(--cyan); background: var(--blue-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(0,229,255,0.15); }
+    .cl-summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .cl-sum { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
+    .cl-sum-acc { position: absolute; top: 0; left: 0; right: 0; height: 1px; }
+    .cl-sum-val { font-size: 26px; font-weight: 700; font-family: var(--mono); line-height: 1; margin-bottom: 4px; letter-spacing: -1px; }
+    .cl-sum-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+    .cl-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .cl-search { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 5px 10px; color: var(--text); font-family: var(--mono); font-size: 11px; outline: none; width: 200px; transition: border-color 0.15s; }
+    .cl-search:focus { border-color: var(--blue); }
+    .cl-sep { width: 1px; height: 18px; background: var(--border2); margin: 0 2px; }
+    .cl-chip { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; border: 1px solid var(--border2); background: var(--bg3); color: var(--text3); cursor: pointer; transition: all 0.12s; font-family: var(--mono); }
+    .cl-chip:hover { border-color: rgba(255, 255, 255, 0.15); color: var(--text2); }
+    .cl-chip.active { background: var(--blue-bg); border-color: rgba(77, 159, 255, 0.4); color: var(--blue); }
+    .cl-chip.act-r { background: var(--red-bg); border-color: rgba(255, 61, 90, 0.4); color: var(--red); }
+    .cl-count { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-left: auto; }
+    .cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-bottom: 20px; }
+    .cl-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: pointer; transition: all 0.12s; }
+    .cl-card:hover { border-color: var(--blue); transform: translateY(-1px); }
+    .cl-card-accent { height: 2px; } .cl-card-accent.ok { background: var(--green); } .cl-card-accent.error { background: var(--red); }
+    .cl-card-body { padding: 11px 12px; }
+    .cl-card-row1 { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
+    .cl-rank-name { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+    .cl-rank { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 3px; font-size: 9px; font-weight: 600; font-family: var(--mono); background: var(--bg4); color: var(--text3); }
+    .cl-rank.top { background: var(--red-bg); color: var(--red); }
+    .cl-card-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); max-width: 130px; }
+    .cl-card-region { font-size: 10px; color: var(--text4); margin-bottom: 8px; }
+    .exp-badge { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+    .exp-crit { background: var(--red-bg); color: var(--red); border: 1px solid rgba(255, 61, 90, 0.25); }
+    .exp-safe { background: var(--green-bg); color: var(--green); border: 1px solid rgba(0, 245, 160, 0.25); }
+    .cl-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .cl-card-stat { background: var(--bg3); border-radius: 6px; padding: 6px 8px; }
+    .cl-card-stat-val { font-size: 15px; font-weight: 600; font-family: var(--mono); line-height: 1; margin-bottom: 2px; }
+    .cl-card-stat-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+    .cl-card-footer { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-top: 1px solid var(--border); background: var(--bg3); }
+    .cl-card-status { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text3); }
+    .cl-dot { width: 5px; height: 5px; border-radius: 50%; } .cl-dot-ok { background: var(--green); } .cl-dot-err { background: var(--red); }
+    .cl-err-strip { padding: 6px 12px; background: var(--red-bg); border-top: 1px solid rgba(255, 61, 90, 0.2); font-size: 10px; color: var(--red); font-family: var(--mono); word-break: break-all; }
+    .dd-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 500; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
+    .dd-modal { width: 950px; max-height: 85vh; background: #0c0e17; border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+    .dd-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+    .dd-body { padding: 24px; overflow-y: auto; flex: 1; }
+    .g21 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    .chart-container { position: relative; height: 220px; width: 100%; }
+    .footer { display: flex; justify-content: space-between; padding: 16px 24px; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--text3); background: var(--bg2); position: fixed; bottom: 0; left: 0; right: 0; }
+    .cr { color: var(--red); } .ca { color: var(--amber); } .cg { color: var(--green); } .cb { color: var(--blue); }
+    .spin { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.1); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="tb-l">
+      <div class="tb-logo"><div class="tb-ic">🛡️</div>PDKS Platform Control Plane</div>
+      <div class="tb-div" style="width:1px; height:20px; background:var(--border2);"></div>
+      <select class="tb-select" id="globalClusterSelector" onchange="handleClusterContextSwitch()">
+        <option value="ALL-CONTEXTS">🌐 Fleet Aggregate View</option>
+      </select>
+    </div>
+    <div class="tb-r">
+      <div class="badge b-live"><div class="bdot"></div>LIVE STREAM ACTIVE</div>
+      <div class="badge b-warn" id="globalExposedBadge" style="display:none;"><span id="globalExposedCount">0</span> COMPROMISED INSTANCES</div>
+      <button class="tb-btn" onclick="triggerManualForceSync(this)">↻ Force Re-Scan</button>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="ntab active" onclick="showTab('overview',this)">Overview Summary</button>
+    <button class="ntab" onclick="showTab('nodes',this)">Compute Infrastructure</button>
+    <button class="ntab" onclick="showTab('workloads',this)">Workloads & Namespaces</button>
+    <button class="ntab" onclick="showTab('clusters',this)">Cluster Grid Matrix</button>
+  </div>
+  <div class="body">
+    <div id="tab-overview" class="page active">
+      <div class="mrow">
+        <div class="mcard"><div class="mcard-acc" style="background:var(--red)"></div><div class="mlbl">Exposed Compute Systems</div><div class="mval cr" id="card-exposed">—</div></div>
+        <div class="mcard"><div class="mcard-acc" style="background:var(--red)"></div><div class="mlbl">Critical Threat Nodes</div><div class="mval cr" id="card-critical">—</div></div>
+        <div class="mcard"><div class="mcard-acc" style="background:var(--amber)"></div><div class="mlbl">High Risk Nodes</div><div class="mval ca" id="card-high">—</div></div>
+        <div class="mcard"><div class="mcard-acc" style="background:var(--blue)"></div><div class="mlbl">Active Monitored Pods</div><div class="mval cb" id="card-pods">—</div></div>
+        <div class="mcard"><div class="mcard-acc" style="background:var(--purple)"></div><div class="mlbl">Aggregate Risk Factor</div><div class="mval" id="card-risk" style="color:var(--purple);">—</div></div>
+      </div>
+      <div class="g21">
+        <div class="panel"><div class="ph"><span class="ptitle">Risk Bounding Distribution</span></div><div class="chart-container"><canvas id="chartRiskAlloc"></canvas></div></div>
+        <div class="panel"><div class="ph"><span class="ptitle">Threat Evaluation Radius</span></div><div class="chart-container"><canvas id="chartThreatVector"></canvas></div></div>
+      </div>
+    </div>
+    <div id="tab-nodes" class="page">
+      <div class="fbar">
+        <input class="sinp" id="nodeSearchQuery" placeholder="Search machine host names..." oninput="evaluateViewRedraw()" style="width:300px;" />
+        <button class="fbtn active" onclick="setSubFilter('ALL',this)">All System Nodes</button>
+        <button class="fbtn" onclick="setSubFilter('CRITICAL',this)">Critical State</button>
+        <button class="fbtn" onclick="setSubFilter('HIGH',this)">High State</button>
+        <button class="fbtn" onclick="setSubFilter('PATCHED',this)">Patched State</button>
+        <span style="font-size:11px; color:var(--text3); font-family:var(--mono); margin-left:auto;" id="nodeCountLabel">0 nodes scoped</span>
+      </div>
+      <div id="nodeDataGrid" class="node-grid"></div>
+    </div>
+    <div id="tab-workloads" class="page">
+      <div class="wl-summary-cards">
+        <div class="wl-sum-card"><div class="wl-sum-val cr" id="summaryWlCrit">0</div><div class="wl-sum-label">Anomalous Applications</div></div>
+        <div class="wl-sum-card"><div class="wl-sum-val ca" id="summaryWlPriv">0</div><div class="wl-sum-label">Privileged Access Vectors</div></div>
+        <div class="wl-sum-card"><div class="wl-sum-val cb" id="summaryWlHost">0</div><div class="wl-sum-label">hostNetwork Escape Scopes</div></div>
+        <div class="wl-sum-card"><div class="wl-sum-val cg" id="summaryWlTotal">0</div><div class="wl-sum-label">Total Validated Context Pods</div></div>
+      </div>
+      <div class="wl-filters"><input class="wl-search" id="workloadSearchQuery" placeholder="Filter deployment configurations or namespaces..." oninput="evaluateViewRedraw()" style="width:350px;" /></div>
+      <div class="panel" style="padding:0; overflow:hidden; border-color:var(--border2);">
+        <table class="wl-table">
+          <thead>
+            <tr>
+              <th style="width:30px;"></th>
+              <th>Application Pod Target Name</th>
+              <th>Namespace Context</th>
+              <th>Parent Cluster Context</th>
+              <th>Allocated Infrastructure Node</th>
+              <th>Current Phase</th>
+              <th>Threat Level</th>
+              <th>Risk Score</th>
+              <th>Image Registry Specification Path</th>
+            </tr>
+          </thead>
+          <tbody id="workloadTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="tab-clusters" class="page">
+      <div class="cl-summary-row">
+        <div class="cl-sum"><div class="cl-sum-acc" style="background:var(--blue)"></div><div class="cl-sum-val cb" id="clStatTotal">0</div><div class="cl-sum-label">Total Discoveries</div></div>
+        <div class="cl-sum"><div class="cl-sum-acc" style="background:var(--green)"></div><div class="cl-sum-val cg" id="clStatHealthy">0</div><div class="cl-sum-label">Healthy Reachable Pipelines</div></div>
+        <div class="cl-sum"><div class="cl-sum-acc" style="background:var(--red)"></div><div class="cl-sum-val cr" id="clStatBad">0</div><div class="cl-sum-label">Authentication Failures</div></div>
+        <div class="cl-sum"><div class="cl-sum-acc" style="background:var(--amber)"></div><div class="cl-sum-val ca" id="clStatExposed">0</div><div class="cl-sum-label">Exposed Scopes</div></div>
+      </div>
+      <div class="cl-grid" id="clusterContextCardGrid"></div>
+    </div>
+  </div>
+  <div id="dd-modal" class="dd-overlay" style="display:none;" onclick="if(event.target===this)closeDd()">
+    <div class="dd-modal">
+      <div class="dd-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="dd-head-icon" id="modalHeaderIcon" style="background:var(--blue-bg); color:var(--blue);">⬡</div>
+          <div><div class="dd-head-title" id="modalHeaderTitle">Analysis Matrix</div><div class="dd-head-sub" id="modalHeaderSubtitle">Discovered Context Telemetries</div></div>
+        </div>
+        <button class="dd-close" onclick="closeDd()">✕</button>
+      </div>
+      <div class="dd-body" id="modalRenderBody"></div>
+    </div>
+  </div>
+  <script>
+    let masterPayload = {}, currentSubFilter = 'ALL', activeCharts = {}, clFilter = 'all';
+    let globalActiveContextScope = 'ALL-CONTEXTS';
+    async function executeTelemetryFetchLoop() {
+      try {
+        const response = await fetch('/api/data');
+        if(!response.ok) throw new Error(`HTTP_FAULT_${response.status}`);
+        masterPayload = await response.json();
+        populateGlobalClusterSelector(masterPayload.clusters || []);
+        evaluateViewRedraw();
+      } catch (error) { console.error("[CRITICAL ERROR] Failed streaming live payload:", error); }
+    }
+    function populateGlobalClusterSelector(clusters) {
+      const selector = document.getElementById('globalClusterSelector');
+      if (selector.options.length > 1) return;
+      let clusterIdentities = [...new Set(clusters.map(c => c.name))].sort();
+      clusterIdentities.forEach(name => {
+        let opt = document.createElement('option');
+        opt.value = name; opt.textContent = `☸ ${name.toUpperCase()}`; selector.appendChild(opt);
+      });
+    }
+    function handleClusterContextSwitch() {
+      globalActiveContextScope = document.getElementById('globalClusterSelector').value;
+      evaluateViewRedraw();
+    }
+    function evaluateViewRedraw() {
+      if (!masterPayload.metrics) return;
+      let scopedNodes = masterPayload.nodes || [];
+      let scopedPods = masterPayload.pods || [];
+      let scopedClusters = masterPayload.clusters || [];
+      if (globalActiveContextScope !== 'ALL-CONTEXTS') {
+        scopedNodes = scopedNodes.filter(n => n.cluster === globalActiveContextScope);
+        scopedPods = scopedPods.filter(p => p.cluster === globalActiveContextScope);
+        scopedClusters = scopedClusters.filter(c => c.name === globalActiveContextScope);
+      }
+      let metricsExposed = scopedNodes.filter(n => n.patchStatus === 'UNPATCHED').length;
+      let metricsCritical = scopedNodes.filter(n => n.riskLevel === 'CRITICAL').length;
+      let metricsHigh = scopedNodes.filter(n => n.riskLevel === 'HIGH').length;
+      setText('card-exposed', metricsExposed);
+      setText('card-critical', metricsCritical);
+      setText('card-high', metricsHigh);
+      setText('card-pods', scopedPods.length);
+      let systemRiskScore = masterPayload.metrics.aggregateRisk;
+      if (globalActiveContextScope !== 'ALL-CONTEXTS' && scopedNodes.length > 0) {
+        systemRiskScore = Math.round((metricsCritical * 95 + metricsHigh * 60) / scopedNodes.length);
+        if (systemRiskScore === 0 && metricsExposed > 0) systemRiskScore = 25;
+      }
+      setText('card-risk', systemRiskScore + '%');
+      setText('globalExposedCount', metricsExposed);
+      document.getElementById('globalExposedBadge').style.display = metricsExposed > 0 ? 'flex' : 'none';
+      generateOverviewCharts(metricsCritical, metricsHigh, systemRiskScore, scopedNodes.length);
+      drawNodeGridMatrix(scopedNodes);
+      drawWorkloadTableMatrix(scopedPods);
+      drawClusterContextMatrix(scopedClusters);
+    }
+    function drawNodeGridMatrix(nodes) {
+      const query = (document.getElementById('nodeSearchQuery').value || '').toLowerCase();
+      let pipelineNodes = nodes;
+      if (currentSubFilter === 'CRITICAL') pipelineNodes = pipelineNodes.filter(n => n.riskLevel === 'CRITICAL');
+      else if (currentSubFilter === 'HIGH') pipelineNodes = pipelineNodes.filter(n => n.riskLevel === 'HIGH');
+      else if (currentSubFilter === 'PATCHED') pipelineNodes = pipelineNodes.filter(n => n.patchStatus === 'PATCHED');
+      if (query) pipelineNodes = pipelineNodes.filter(n => n.name.toLowerCase().includes(query));
+      setText('nodeCountLabel', `${pipelineNodes.length} nodes isolated`);
+      if (!pipelineNodes.length) {
+        document.getElementById('nodeDataGrid').innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:48px; color:var(--text3); font-family:var(--mono);">No compute assets verified.</div>`;
+        return;
+      }
+      const colors = { CRITICAL: 'var(--red)', HIGH: 'var(--amber)', LOW: 'var(--green)' };
+      document.getElementById('nodeDataGrid').innerHTML = pipelineNodes.map(n => `
+        <div class="ncard ${n.riskLevel}" onclick="triggerNodeDrilldownOverlay('${n.name}')">
+          <div class="ntop">
+            <div><div class="nname">${n.name}</div><div class="ncluster">${n.cluster.toUpperCase()}</div></div>
+            <div class="rs"><div class="rs-n" style="color:${colors[n.riskLevel]};">${n.riskScore}</div><div class="rs-l">risk</div></div>
+          </div>
+          <div class="nmets">
+            <div class="nmet"><div class="nml">Patch state</div><div class="nmv" style="color:${n.patchStatus==='PATCHED'?'var(--green)':'var(--red)'}">${n.patchStatus}</div></div>
+            <div class="nmet"><div class="nml">algif_aead</div><div class="nmv" style="color:${n.AlgifState==='BLOCKED'?'var(--green)':'var(--red)'}">${n.algifState}</div></div>
+            <div class="nmet wide"><div class="nml">Kernel tracking</div><div class="nmv" style="color:var(--text2); font-size:10px;">${n.kernel}</div></div>
+          </div>
+          <div class="ntags">
+            ${n.patchStatus==='UNPATCHED'?'<span class="nt nt-r">EXPOSED_VECT</span>':''}
+            <span class="nt ${n.capacity==='SPOT'?'nt-a':'nt-b'}">${n.capacity}</span>
+            <span class="nt nt-g">${n.provider}</span>
+          </div>
+        </div>`).join('');
+    }
+    function drawWorkloadTableMatrix(pods) {
+      const query = (document.getElementById('workloadSearchQuery').value || '').toLowerCase();
+      let pipelinePods = pods;
+      if (query) pipelinePods = pipelinePods.filter(p => p.name.toLowerCase().includes(query) || p.namespace.toLowerCase().includes(query));
+      setText('summaryWlCrit', pipelinePods.filter(p => p.riskLevel === 'CRITICAL').length);
+      setText('summaryWlPriv', pipelinePods.filter(p => p.isPrivileged).length);
+      setText('summaryWlHost', pipelinePods.filter(p => p.hostNetwork).length);
+      setText('summaryWlTotal', pipelinePods.length);
+      if (!pipelinePods.length) {
+        document.getElementById('workloadTableBody').innerHTML = `<tr><td colspan="9" style="text-align:center; padding:32px; color:var(--text3); font-family:var(--mono);">No validation components mapped within scope bounds.</td></tr>`;
+        return;
+      }
+      document.getElementById('workloadTableBody').innerHTML = pipelinePods.map(p => `
+        <tr>
+          <td><span style="color:${p.riskLevel==='CRITICAL'?'var(--red)':'var(--green)'};">●</span></td>
+          <td><span class="wl-name" style="font-weight:600;">${p.name}</span></td>
+          <td><span class="wl-ns-badge">${p.namespace}</span></td>
+          <td><span class="wl-cluster">${p.cluster.toUpperCase()}</span></td>
+          <td style="font-family:var(--mono); color:var(--text2); font-size:11px;">${p.nodeName || 'PENDING'}</td>
+          <td><span style="font-family:var(--mono); font-weight:600; color:var(--green);">${p.status.toUpperCase()}</span></td>
+          <td><span class="nt ${p.riskLevel==='CRITICAL'?'nt-r':'nt-g'}">${p.riskLevel}</span></td>
+          <td><span class="risk-ring rr-${p.riskLevel==='CRITICAL'?'c':'l'}">${p.riskScore}</span></td>
+          <td><span style="font-family:var(--mono); font-size:11px; color:var(--text3);" title="${p.image}">${p.image.length > 50 ? p.image.substring(0,50)+'...' : p.image}</span></td>
+        </tr>`).join('');
+    }
+    function drawClusterContextMatrix(clusters) {
+      setText('clStatTotal', masterPayload.metrics.totalClusters);
+      setText('clStatHealthy', masterPayload.metrics.activeContexts);
+      setText('clStatBad', masterPayload.metrics.unreachable);
+      setText('clStatExposed', masterPayload.clusters.filter(c => c.exposedCount > 0).length);
+      const query = (document.getElementById('cl-search')?.value || '').toLowerCase();
+      let pipelineClusters = clusters;
+      if (clFilter === 'ok') pipelineClusters = pipelineClusters.filter(c => c.status === 'HEALTHY');
+      else if (clFilter === 'error') pipelineClusters = pipelineClusters.filter(c => c.status !== 'HEALTHY');
+      else if (clFilter === 'vulnerable') pipelineClusters = pipelineClusters.filter(c => c.exposedCount > 0);
+      if (query) pipelineClusters = pipelineClusters.filter(c => c.name.toLowerCase().includes(query));
+      setText('cl-count', `${pipelineClusters.length} profiles listed`);
+      document.getElementById('clusterContextCardGrid').innerHTML = pipelineClusters.map((c, idx) => {
+        const isHealthy = c.status === 'HEALTHY';
+        const ratio = c.nodeCount > 0 ? Math.round((c.exposedCount / c.nodeCount) * 100) : 0;
+        return `
+          <div class="cl-card" onclick="triggerClusterDrilldownOverlay('${c.context}')">
+            <div class="cl-card-accent ${isHealthy?'ok':'error'}"></div>
+            <div class="cl-card-body">
+              <div class="cl-card-row1">
+                <div>
+                  <div class="cl-rank-name">
+                    <span class="cl-rank ${isHealthy && c.exposedCount > 0 ? 'top' : ''}">${idx + 1}</span>
+                    <span class="cl-card-name">${c.name.toUpperCase()}</span>
+                  </div>
+                  <div class="cl-card-region">${c.region.toUpperCase()}</div>
+                </div>
+                <span class="exp-badge ${c.exposedCount > 0 ? 'exp-crit' : 'exp-safe'}">${isHealthy ? ratio + '% exposed' : 'OFFLINE'}</span>
+              </div>
+              <div class="cl-card-stats">
+                <div class="cl-card-stat"><div class="cl-card-stat-val">${isHealthy?c.nodeCount:'—'}</div><div class="cl-card-stat-label">Total Nodes</div></div>
+                <div class="cl-card-stat"><div class="cl-card-stat-val" style="color:${c.exposedCount>0?'var(--red)':'var(--green)'}">${isHealthy?c.exposedCount:'—'}</div><div class="cl-card-stat-label">Exposed</div></div>
+              </div>
+            </div>
+            ${!isHealthy ? `<div class="cl-err-strip">${c.errorDetail}</div>` : ''}
+            <div class="cl-card-footer">
+              <div class="cl-card-status"><div class="cl-dot ${isHealthy?'cl-dot-ok':'cl-dot-err'}"></div><span style="font-weight:600; text-transform:uppercase; font-size:9px;">${c.status}</span></div>
+              <span class="cl-card-time">Metrics Clear</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+    function triggerNodeDrilldownOverlay(nodeName) {
+      const modal = document.getElementById('dd-modal');
+      setText('modalHeaderIcon', '⬡'); setText('modalHeaderTitle', nodeName);
+      modal.style.display = 'flex';
+      const targetedNode = masterPayload.nodes.find(n => n.name === nodeName);
+      const associatedPods = masterPayload.pods.filter(p => p.nodeName === nodeName && p.cluster === targetedNode.cluster);
+      let namespaces = [...new Set(associatedPods.map(p => p.namespace))];
+      let namespaceBadges = namespaces.map(ns => `<span class="wl-ns-badge">${ns}</span>`).join(' ');
+      let podsTableHtml = associatedPods.map(p => `
+        <tr>
+          <td style="font-family:var(--mono); font-weight:600;">${p.name}</td>
+          <td><span class="wl-ns-badge">${p.namespace}</span></td>
+          <td><span style="color:var(--green); font-family:var(--mono); font-weight:600;">${p.status}</span></td>
+          <td><span class="nt ${p.riskLevel==='CRITICAL'?'nt-r':'nt-g'}">${p.riskScore}</span></td>
+        </tr>`).join('');
+      document.getElementById('modalRenderBody').innerHTML = `
+        <div class="dd-section">
+          <div class="dd-section-title">Compute Environment Allocation</div>
+          <div class="dd-grid4">
+            <div class="dd-stat"><div class="dd-stat-val">${associatedPods.length}</div><div class="dd-stat-label">Active Container Units</div></div>
+            <div class="dd-stat"><div class="dd-stat-val" style="color:var(--blue);">${targetedNode.provider}</div><div class="dd-stat-label">Orchestration Provider</div></div>
+            <div class="dd-stat"><div class="dd-stat-val" style="color:var(--purple);">${targetedNode.capacity}</div><div class="dd-stat-label">Capacity Configuration</div></div>
+            <div class="dd-stat"><div class="dd-stat-val" style="color:var(--cyan);">${targetedNode.zone}</div><div class="dd-stat-label">Availability Zone</div></div>
+          </div>
+        </div>
+        <div class="dd-section" style="margin-top:16px;">
+          <div class="dd-section-title">Discovered Active Namespaces</div>
+          <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">${namespaceBadges || '<span style="color:var(--text4)">No active namespace vectors located</span>'}</div>
+        </div>
+        <div class="dd-section" style="margin-top:20px;">
+          <div class="dd-section-title">Isolated Application Context Units</div>
+          <table class="dd-table" style="margin-top:8px;">
+            <thead><tr><th>Application Pod Configuration Blueprint</th><th>Namespace Bounds</th><th>Status</th><th>Derived Risk Weight</th></tr></thead>
+            <tbody>${podsTableHtml || '<tr><td colspan="4" style="text-align:center; color:var(--text4); padding:16px;">No execution frames active on host</td></tr>'}</tbody>
+          </table>
+        </div>`;
+    }
+    function triggerClusterDrilldownOverlay(contextIdentity) {
+      const c = masterPayload.clusters.find(x => x.context === contextIdentity);
+      if (!c) return;
+      const modal = document.getElementById('dd-modal');
+      setText('modalHeaderIcon', '☸'); setText('modalHeaderTitle', c.name.toUpperCase());
+      modal.style.display = 'flex';
+      document.getElementById('modalRenderBody').innerHTML = `
+        <div class="dd-section">
+          <div class="dd-section-title">Context Target Parameters</div>
+          <div class="dd-grid3">
+            <div class="dd-stat"><div class="dd-stat-val">${c.nodeCount}</div><div class="dd-stat-label">Total Node Assets</div></div>
+            <div class="dd-stat"><div class="dd-stat-val" style="color:var(--red);">${c.exposedCount}</div><div class="dd-stat-label">Exposed Core Nodes</div></div>
+            <div class="dd-stat"><div class="dd-stat-val" style="color:var(--blue);">${c.region.toUpperCase()}</div><div class="dd-stat-label">Cloud Infrastructure Region</div></div>
+          </div>
+        </div>`;
+    }
+    function generateOverviewCharts(crit, high, globalScore, totalNodes) {
+      if (activeCharts.alloc) activeCharts.alloc.destroy();
+      activeCharts.alloc = new Chart(document.getElementById('chartRiskAlloc'), {
+        type: 'bar',
+        data: {
+          labels: ['CRITICAL LEVEL VECTORS', 'HIGH LEVEL VECTORS', 'COMPLIANT BASELINE SYSTEMS'],
+          datasets: [{
+            data: [crit, high, Math.max(0, totalNodes - (crit + high))],
+            backgroundColor: ['rgba(255, 61, 90, 0.85)', 'rgba(255, 179, 64, 0.85)', 'rgba(0, 245, 160, 0.85)'],
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+      if (activeCharts.threat) activeCharts.threat.destroy();
+      activeCharts.threat = new Chart(document.getElementById('chartThreatVector'), {
+        type: 'doughnut',
+        data: {
+          labels: ['FLEET DEVIATION COEFFICIENT', 'COMPLIANT STEADY STATE'],
+          datasets: [{
+            data: [globalScore, 100 - globalScore],
+            backgroundColor: ['rgba(168, 85, 247, 0.85)', '#111420'],
+            borderWidth: 0
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '80%' }
+      });
+    }
+    function setClFilter(f, el) {
+      clFilter = f;
+      document.querySelectorAll('.cl-chip').forEach(c => c.classList.remove('active', 'act-r'));
+      el.classList.add(f === 'error' ? 'act-r' : 'active');
+      evaluateViewRedraw();
+    }
+    function filterClusters() { evaluateViewRedraw(); }
+    function setSubFilter(filterType, element) {
+      currentSubFilter = filterType;
+      document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active', 'act-r'));
+      element.classList.add(filterType === 'CRITICAL' ? 'act-r' : 'active');
+      evaluateViewRedraw();
+    }
+    function showTab(id, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.ntab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + id).classList.add('active');
+      if (btn) btn.classList.add('active');
+    }
+    async function triggerManualForceSync(btn) {
+      btn.textContent = "SYNCHRONIZING FLEET STRUCTURE DATA CORES...";
+      await fetch('/api/refresh');
+      setTimeout(() => { btn.textContent = "↻ Force Re-Scan"; executeTelemetryFetchLoop(); }, 1200);
+    }
+    function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+    function setVal(id, v, cls) { const el = document.getElementById(id); if (el) { el.textContent = v; el.className = 'mval ' + cls; } }
+    function show(id) { const el = document.getElementById(id); if (el) el.style.display = 'flex'; }
+    function closeDd() { document.getElementById('dd-modal').style.display = 'none'; }
+    function setCompVal(id, v) { const el = document.getElementById(id); if (el) { el.textContent = v + '%'; el.style.color = v >= 50 ? 'var(--green)' : 'var(--red)'; } }
+    executeTelemetryFetchLoop();
+    setInterval(executeTelemetryFetchLoop, 10000);
+  </script>
+</body>
+</html>
